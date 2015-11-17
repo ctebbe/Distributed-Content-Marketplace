@@ -11,21 +11,21 @@ public class NodeIDEvent implements Event {
 
     private final Header header;
     public final String nodeID;
-    public final String IP;
+    public final String payload;
     public final boolean lowLeaf;
 
-    protected NodeIDEvent(int protocol, NodeConnection connection, String nodeID) {
+    protected NodeIDEvent(int protocol, NodeConnection connection, String nodeID, String payload) {
         header = new Header(protocol, connection);
         this.nodeID = nodeID;
         lowLeaf = false;
-        IP = "";
+        this.payload = payload;
     }
 
     protected NodeIDEvent(int protocol, NodeConnection connection, String nodeID, boolean isLow, String ip) {
         header = new Header(protocol, connection);
         this.nodeID = nodeID;
         lowLeaf = isLow;
-        IP = ip;
+        payload = ip;
     }
 
     protected NodeIDEvent(byte[] marshalledBytes) throws IOException {
@@ -35,11 +35,11 @@ public class NodeIDEvent implements Event {
         // header
         this.header = Header.parseHeader(din);
 
-        // node IP
+        // node payload
         int ipLen = din.readInt();
         byte[] ipBytes = new byte[ipLen];
         din.readFully(ipBytes);
-        IP = new String(ipBytes);
+        payload = new String(ipBytes);
 
         // node ID
         int idLen = din.readInt();
@@ -61,8 +61,8 @@ public class NodeIDEvent implements Event {
         // header
         dout.write(header.getBytes());
 
-        // IP
-        byte[] ipBytes = IP.getBytes();
+        // payload
+        byte[] ipBytes = payload.getBytes();
         dout.writeInt(ipBytes.length);
         dout.write(ipBytes);
 

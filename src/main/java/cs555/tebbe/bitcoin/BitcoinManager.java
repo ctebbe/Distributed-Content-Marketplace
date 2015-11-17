@@ -3,14 +3,10 @@ package cs555.tebbe.bitcoin;
 import org.bitcoinj.core.*;
 import org.bitcoinj.kits.WalletAppKit;
 import org.bitcoinj.params.TestNet3Params;
-import org.bitcoinj.script.Script;
-import org.bitcoinj.store.BlockStore;
 import org.bitcoinj.store.BlockStoreException;
-import org.bitcoinj.store.MemoryBlockStore;
 import org.bitcoinj.store.UnreadableWalletException;
 
 import java.io.File;
-import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.List;
 
@@ -25,14 +21,14 @@ public class BitcoinManager {
         NetworkParameters params = TestNet3Params.get();
         walletKit = new WalletAppKit(params, new File("./wallets"), walletName);
         walletKit.wallet().addEventListener(new WalletListener());
-        walletKit.startAsync();
-        walletKit.awaitRunning();
+        //walletKit.startAsync();
+        //walletKit.awaitRunning();
     }
     public static void main(String[] args) throws UnreadableWalletException, BlockStoreException, UnknownHostException, AddressFormatException, InsufficientMoneyException {
         NetworkParameters params = TestNet3Params.get();
         WalletAppKit kit = new WalletAppKit(params, new File("."), "walletappkit");
-        kit.startAsync();
-        kit.awaitRunning();
+        //kit.startAsync();
+        //kit.awaitRunning();
 
         System.out.println(kit.wallet().freshReceiveAddress());
         System.out.println(kit.wallet().freshReceiveAddress());

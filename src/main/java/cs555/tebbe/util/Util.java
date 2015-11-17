@@ -1,9 +1,26 @@
 package cs555.tebbe.util;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.Date;
 
 public class Util {
+
+
+    public static void writeString(String str, DataOutputStream dout) throws IOException {
+        byte[] bytes = str.getBytes();
+        dout.writeInt(bytes.length);
+        dout.write(bytes);
+    }
+
+    public static String readString(DataInputStream din) throws IOException {
+        int len = din.readInt();
+        byte[] bytes = new byte[len];
+        din.readFully(bytes);
+        return new String(bytes);
+    }
 
     public static String getTimestampHexID() {
         return Util.getFormattedHexID(new Timestamp(new Date().getTime()).toString().getBytes());
@@ -46,7 +63,7 @@ public class Util {
         return key.substring(0, key.indexOf(":"));
     }
 
-    // strips away the IP address in the key format host:port
+    // strips away the payload address in the key format host:port
     public static int removeIPAddress(String key) {
         return Integer.parseInt(key.substring(key.indexOf(":") + 1));
     }

@@ -19,8 +19,8 @@ public class EventFactory {
     }
 
     // REGISTER_REQ
-    public static Event buildRegisterEvent(NodeConnection connection, String id) throws IOException {
-        return new RegisterRequest(Protocol.REGISTER_REQ, connection, id);
+    public static Event buildRegisterEvent(NodeConnection connection, String id, String channel) throws IOException {
+        return new SubscribeRequest(Protocol.REGISTER_REQ, connection, id, channel);
     }
 
     // REGISTER_REQ RESP
@@ -45,8 +45,8 @@ public class EventFactory {
     }
 
     // JOIN COMP
-    public static Event buildJoinCompleteEvent(NodeConnection connection, String ID) throws IOException {
-        return new NodeIDEvent(Protocol.JOIN_COMP, connection, ID);
+    public static Event buildJoinCompleteEvent(NodeConnection connection, String ID, String channel) throws IOException {
+        return new NodeIDEvent(Protocol.JOIN_COMP, connection, ID, channel);
     }
 
     // RANDOM PEER REQ
@@ -89,17 +89,17 @@ public class EventFactory {
 
     // FILE STORE COMP
     public static Event buildFileStoreCompleteEvent(NodeConnection connection, String fname) throws IOException {
-        return new NodeIDEvent(Protocol.FILE_STORE_COMP, connection, fname);
+        return new NodeIDEvent(Protocol.FILE_STORE_COMP, connection, fname,"");
     }
 
     // ROUTE TABLE UPDATE
     public static Event buildRouteTableUpdateEvent(NodeConnection connection, String id) throws IOException {
-        return new NodeIDEvent(Protocol.TABLE_UPDATE, connection, id);
+        return new NodeIDEvent(Protocol.TABLE_UPDATE, connection, id,"");
     }
 
     // EXIT OVERLAY
     public static Event buildExitOverlayEvent(NodeConnection connection, String id) throws IOException {
-        return new NodeIDEvent(Protocol.EXIT, connection, id);
+        return new NodeIDEvent(Protocol.EXIT, connection, id,"");
     }
 
     public static Event buildEvent(byte[] marshalledBytes) throws IOException {
@@ -109,7 +109,7 @@ public class EventFactory {
 
             switch(din.readInt()) { // read protocol type byte
                 case Protocol.REGISTER_REQ:
-                    return new RegisterRequest(marshalledBytes);
+                    return new SubscribeRequest(marshalledBytes);
                 case Protocol.REGISTER_ACK:
                     return new RegisterAck(marshalledBytes);
                 case Protocol.JOIN_REQ:

@@ -44,7 +44,7 @@ public class PeerNode implements Node {
                 System.out.println("Peer Node ID?");
                 id = keyboard.nextLine();
             }
-            _DiscoveryNode.sendEvent(EventFactory.buildRegisterEvent(_DiscoveryNode, id));
+            _DiscoveryNode.sendEvent(EventFactory.buildRegisterEvent(_DiscoveryNode, id, "default"));
         } catch(IOException ioe) {
             System.out.println("IOException thrown contacting DiscoveryNode:"+ioe.getMessage());
             ioe.printStackTrace();
@@ -205,7 +205,7 @@ public class PeerNode implements Node {
     }
 
     private void processLeafsetUpdate(NodeIDEvent event) throws IOException {
-        String ip = event.IP.isEmpty() ? event.getHeader().getSenderKey() : event.IP;
+        String ip = event.payload.isEmpty() ? event.getHeader().getSenderKey() : event.payload;
         if(event.lowLeaf) {
             router.setLowLeaf(new PeerNodeData(ip, event.nodeID));
         } else {
@@ -293,7 +293,7 @@ public class PeerNode implements Node {
             logger.printDiagnostic(router);
         }
         logger.printDiagnostic(event.route);
-        _DiscoveryNode.sendEvent(EventFactory.buildJoinCompleteEvent(_DiscoveryNode, router._Identifier));
+        _DiscoveryNode.sendEvent(EventFactory.buildJoinCompleteEvent(_DiscoveryNode, router._Identifier, "default"));
     }
 
     private NodeConnection getNodeConnection(String key) {
@@ -341,10 +341,10 @@ public class PeerNode implements Node {
                 NodeConnection entryConnection = getNodeConnection(event.randomNodeIP);
                 entryConnection.sendEvent(EventFactory.buildJoinRequestEvent(entryConnection, router._Identifier));
             } else {
-                _DiscoveryNode.sendEvent(EventFactory.buildJoinCompleteEvent(_DiscoveryNode, event.assignedID));
+                _DiscoveryNode.sendEvent(EventFactory.buildJoinCompleteEvent(_DiscoveryNode, event.assignedID, "default"));
             }
         } else {
-            _DiscoveryNode.sendEvent(EventFactory.buildRegisterEvent(_DiscoveryNode, Util.getTimestampHexID()));
+            _DiscoveryNode.sendEvent(EventFactory.buildRegisterEvent(_DiscoveryNode, Util.getTimestampHexID(), "default"));
         }
     }
 

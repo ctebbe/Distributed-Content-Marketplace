@@ -44,7 +44,7 @@ public class RegisterAck implements Event {
         // success
         success = din.readBoolean();
 
-        // node IP
+        // node payload
         int ipLen = din.readInt();
         byte[] ipBytes = new byte[ipLen];
         din.readFully(ipBytes);
@@ -70,7 +70,7 @@ public class RegisterAck implements Event {
         // success
         dout.writeBoolean(success);
 
-        // IP
+        // payload
         byte[] ipBytes = randomNodeIP.getBytes();
         dout.writeInt(ipBytes.length);
         dout.write(ipBytes);

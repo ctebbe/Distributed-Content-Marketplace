@@ -14,7 +14,7 @@ public class TCPServerThread extends Thread {
     public TCPServerThread(Node node, ServerSocket ssocket) throws IOException {
         this.node = node;
         this.serverSocket = ssocket;
-        display("Server Thread listening on IP:\t"+getIP());
+        display("Server Thread listening on payload:\t"+getIP());
         display("Server Thread listening on port:\t"+getPort());
     }
 

@@ -24,7 +24,7 @@ public class RandomPeerNodeResponse implements Event {
         // header
         this.header = Header.parseHeader(din);
 
-        // node IP
+        // node payload
         int ipLen = din.readInt();
         byte[] ipBytes = new byte[ipLen];
         din.readFully(ipBytes);
@@ -42,7 +42,7 @@ public class RandomPeerNodeResponse implements Event {
         // header
         dout.write(header.getBytes());
 
-        // IP
+        // payload
         byte[] ipBytes = nodeIP.getBytes();
         dout.writeInt(ipBytes.length);
         dout.write(ipBytes);

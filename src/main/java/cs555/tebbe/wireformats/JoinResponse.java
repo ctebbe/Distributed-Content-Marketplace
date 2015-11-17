@@ -69,7 +69,7 @@ public class JoinResponse implements Event {
         din.readFully(idBytes);
         targetNodeID = new String(idBytes);
 
-        // lowLeafIP IP
+        // lowLeafIP payload
         int lowLen = din.readInt();
         byte[] lowBytes = new byte[lowLen];
         din.readFully(lowBytes);
@@ -81,7 +81,7 @@ public class JoinResponse implements Event {
         din.readFully(lowIDBytes);
         lowLeafIdentifier = new String(lowIDBytes);
 
-        // highLeafIP IP
+        // highLeafIP payload
         int highLen = din.readInt();
         byte[] highBytes = new byte[highLen];
         din.readFully(highBytes);

@@ -6,7 +6,6 @@ import cs555.tebbe.transport.NodeConnection;
 import cs555.tebbe.transport.TCPServerThread;
 import cs555.tebbe.util.Util;
 import cs555.tebbe.wireformats.*;
-import cs555.tebbe.wireformats.RegisterRequest;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -18,14 +17,14 @@ public class DiscoveryNode implements Node {
     public static final int DEFAULT_SERVER_PORT = 18080;
 
     private TCPServerThread serverThread = null;                            // listens for incoming connections
-    private ConcurrentHashMap<String, NodeConnection> bufferMap    = null;  // buffers incoming unregistered connections
-    private ConcurrentHashMap<String, PeerNodeData> peerMap    = null;    // registered peer nodes
-    private Set<String> identifierSet = new HashSet<>();
+    private ConcurrentHashMap<String, NodeConnection> bufferMap = null;  // buffers incoming unregistered connections
+    private Map<String, Map<String, PeerNodeData>> channelMap = null;    // registered peer nodes
+    private Map<String, String> identifierMap = new HashMap<>();
 
     public DiscoveryNode(int port) {
         try {
             bufferMap = new ConcurrentHashMap<>();
-            peerMap = new ConcurrentHashMap<>();
+            channelMap = new ConcurrentHashMap<>();
 
             serverThread = new TCPServerThread(this, new ServerSocket(port));
             serverThread.start();
@@ -48,9 +47,11 @@ public class DiscoveryNode implements Node {
     }
 
     private void printListNodes() {
-        List<PeerNodeData> nodes = new ArrayList<>(peerMap.values());
-        for(PeerNodeData node : nodes) {
-            System.out.println(node);
+        for(Map.Entry<String, Map<String, PeerNodeData>> channel : channelMap.entrySet()) {
+            System.out.println("Channel: " + channel.getKey());
+            for(Map.Entry<String, PeerNodeData> entry : channel.getValue().entrySet()) {
+                System.out.println("\t"+ entry.getKey() +":"+ entry.getValue());
+            }
         }
     }
 
@@ -58,7 +59,7 @@ public class DiscoveryNode implements Node {
         switch(event.getType()) {
             case Protocol.REGISTER_REQ:
                 try {
-                    processRegisterRequest((RegisterRequest) event);
+                    processRegisterRequest((SubscribeRequest) event);
                 } catch (IOException e) {
                     System.out.println("IOE throws processing register event.");
                     e.printStackTrace();
@@ -88,55 +89,62 @@ public class DiscoveryNode implements Node {
 
     private void processExit(NodeIDEvent event) {
         System.out.println("Node exiting overlay:\t" + event.getHeader().getSenderKey() + "\t" + event.nodeID);
-        peerMap.remove(event.getHeader().getSenderKey());
-        identifierSet.remove(event.nodeID);
+        //peerMap.remove(event.getHeader().getSenderKey());
+        //identifierSet.remove(event.nodeID);
     }
 
     private void processJoinComplete(NodeIDEvent event) throws IOException {
         String key = event.getHeader().getSenderKey();
-        peerMap.put(key, new PeerNodeData(event.getHeader().getSenderKey(), event.nodeID));
+        //peerMap.put(key, new PeerNodeData(event.getHeader().getSenderKey(), event.nodeID));
+        channelMap.get(event.payload).put(key, new PeerNodeData(key, event.nodeID));
         Log.printDiagnostic(event);
 
         isNodeJoining = false;
         if(reqQueue.size() > 0) {
-            RegisterRequest req = reqQueue.remove(0);
+            SubscribeRequest req = reqQueue.remove(0);
             processRegisterRequest(req);
         }
     }
 
     private void processRandomPeerRequest(RandomPeerNodeRequest event) throws IOException {
         NodeConnection connection = bufferMap.get(event.getHeader().getSenderKey());
-        connection.sendEvent(EventFactory.buildRandomPeerResponseEvent(connection, getRandomPeerNode()));
+        connection.sendEvent(EventFactory.buildRandomPeerResponseEvent(connection, getRandomPeerNode("default")));
     }
 
-    private List<RegisterRequest> reqQueue = new ArrayList<>();
+    private List<SubscribeRequest> reqQueue = new ArrayList<>();
     private boolean isNodeJoining = false;
     private String joiningNodeKey;
-    private void processRegisterRequest(RegisterRequest event) throws IOException {
+    private void processRegisterRequest(SubscribeRequest event) throws IOException {
         if(isNodeJoining && !event.getHeader().getSenderKey().equals(joiningNodeKey)) {
             reqQueue.add(event);
             return;
         }
 
-        boolean success = !identifierSet.contains(event.getNodeIDRequest()); // check if id is taken
+        boolean success = !identifierMap.containsKey(event.getNodeIDRequest())
+                || identifierMap.get(event.getNodeIDRequest()).equals(Util.removePort(event.getHeader().getSenderKey()));
         if(success) {
-            identifierSet.add(event.getNodeIDRequest());
+            identifierMap.put(event.getNodeIDRequest(), Util.removePort(event.getHeader().getSenderKey()));
             isNodeJoining = true;
         } else {
             joiningNodeKey = event.getHeader().getSenderKey();
         }
 
         NodeConnection connection = bufferMap.get(event.getHeader().getSenderKey());
-        connection.sendEvent(EventFactory.buildRegisterResponseEvent(connection, event.getNodeIDRequest(), success, getRandomPeerNode()));
+        connection.sendEvent(EventFactory.buildRegisterResponseEvent(connection, event.getNodeIDRequest(), success, getRandomPeerNode(event.channel)));
     }
 
-    private String getRandomPeerNode() {
-        if(peerMap.size() > 0) {
-            List<String> keys = new ArrayList(peerMap.keySet());
-            String randKey = keys.get(Util.generateRandomNumber(0, keys.size()));
-            return Util.removePort(peerMap.get(randKey).host_port);
+    private String getRandomPeerNode(String channel) {
+        if(channelMap.containsKey(channel)) {
+            if(channelMap.get(channel).size() > 0) {
+                List<String> keys = new ArrayList(channelMap.get(channel).keySet());
+                String randKey = keys.get(Util.generateRandomNumber(0, keys.size()));
+                return Util.removePort(channelMap.get(channel).get(randKey).host_port);
+            }
+            else return "";
+        } else {
+            channelMap.put(channel, new ConcurrentHashMap<String, PeerNodeData>());
+            return "";
         }
-        return "";
     }
 
     public synchronized void newConnectionMade(NodeConnection connection) {

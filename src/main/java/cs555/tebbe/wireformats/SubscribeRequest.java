@@ -1,25 +1,26 @@
 package cs555.tebbe.wireformats;
-import cs555.tebbe.transport.*;
-import cs555.tebbe.wireformats.Event;
-import cs555.tebbe.wireformats.Header;
+import cs555.tebbe.transport.NodeConnection;
+import cs555.tebbe.util.Util;
 
 import java.io.*;
-public class RegisterRequest implements Event {
+public class SubscribeRequest implements Event {
 
     private final Header header;
     private final String nodeIdentifierRequest;
+    public final String channel;
 
     public String getNodeIDRequest() {
         return nodeIdentifierRequest;
     }
 
-    protected RegisterRequest(int protocol, NodeConnection connection, String id) {
+    protected SubscribeRequest(int protocol, NodeConnection connection, String id, String channel) {
+        this.channel = channel;
         header = new Header(protocol, connection);
         if(id==null) nodeIdentifierRequest = "";
         else  nodeIdentifierRequest = id;
     }
 
-    protected RegisterRequest(byte[] marshalledBytes) throws IOException {
+    protected SubscribeRequest(byte[] marshalledBytes) throws IOException {
         ByteArrayInputStream bais = new ByteArrayInputStream(marshalledBytes);
         DataInputStream din = new DataInputStream(new BufferedInputStream(bais));
 
@@ -31,6 +32,8 @@ public class RegisterRequest implements Event {
         byte[] idBytes = new byte[idLen];
         din.readFully(idBytes);
         nodeIdentifierRequest = new String(idBytes);
+
+        channel = Util.readString(din);
 
         bais.close();
         din.close();
@@ -48,6 +51,8 @@ public class RegisterRequest implements Event {
         byte[] idBytes = nodeIdentifierRequest.getBytes();
         dout.writeInt(idBytes.length);
         dout.write(idBytes);
+
+        Util.writeString(channel, dout);
 
         // clean up
         dout.flush();
