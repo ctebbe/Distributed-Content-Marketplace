@@ -1,6 +1,8 @@
 package cs555.tebbe.wireformats;
 
 import cs555.tebbe.transport.NodeConnection;
+import cs555.tebbe.wireformats.Event;
+import cs555.tebbe.wireformats.Header;
 
 import java.io.*;
 

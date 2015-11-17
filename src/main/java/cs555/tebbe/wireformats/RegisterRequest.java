@@ -1,5 +1,8 @@
 package cs555.tebbe.wireformats;
 import cs555.tebbe.transport.*;
+import cs555.tebbe.wireformats.Event;
+import cs555.tebbe.wireformats.Header;
+
 import java.io.*;
 public class RegisterRequest implements Event {
 

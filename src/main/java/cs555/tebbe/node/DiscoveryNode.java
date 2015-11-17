@@ -6,6 +6,7 @@ import cs555.tebbe.transport.NodeConnection;
 import cs555.tebbe.transport.TCPServerThread;
 import cs555.tebbe.util.Util;
 import cs555.tebbe.wireformats.*;
+import cs555.tebbe.wireformats.RegisterRequest;
 
 import java.io.IOException;
 import java.net.ServerSocket;

@@ -5,6 +5,7 @@ import cs555.tebbe.routing.PeerNodeRouteHandler;
 import cs555.tebbe.transport.*;
 import cs555.tebbe.util.Util;
 import cs555.tebbe.wireformats.*;
+import cs555.tebbe.wireformats.RegisterAck;
 
 import java.io.*;
 import java.net.*;
