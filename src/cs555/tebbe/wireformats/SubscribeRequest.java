@@ -1,21 +1,18 @@
 package cs555.tebbe.wireformats;
 import cs555.tebbe.transport.NodeConnection;
-import cs555.tebbe.util.Util;
 
 import java.io.*;
 public class SubscribeRequest implements Event {
 
     private final Header header;
     private final String nodeIdentifierRequest;
-    public final String channel;
 
     public String getNodeIDRequest() {
         return nodeIdentifierRequest;
     }
 
     protected SubscribeRequest(int protocol, NodeConnection connection, String id, String channel) {
-        this.channel = channel;
-        header = new Header(protocol, connection);
+        header = new Header(protocol, connection, channel);
         if(id==null) nodeIdentifierRequest = "";
         else  nodeIdentifierRequest = id;
     }
@@ -33,8 +30,6 @@ public class SubscribeRequest implements Event {
         din.readFully(idBytes);
         nodeIdentifierRequest = new String(idBytes);
 
-        channel = Util.readString(din);
-
         bais.close();
         din.close();
     }
@@ -51,8 +46,6 @@ public class SubscribeRequest implements Event {
         byte[] idBytes = nodeIdentifierRequest.getBytes();
         dout.writeInt(idBytes.length);
         dout.write(idBytes);
-
-        Util.writeString(channel, dout);
 
         // clean up
         dout.flush();

@@ -1,8 +1,6 @@
 package cs555.tebbe.wireformats;
 
 import cs555.tebbe.transport.NodeConnection;
-import cs555.tebbe.wireformats.Event;
-import cs555.tebbe.wireformats.Header;
 
 import java.io.*;
 
@@ -16,8 +14,8 @@ public class RegisterAck implements Event {
     public final boolean success;
     public final String randomNodeIP;
 
-    protected RegisterAck(int protocol, NodeConnection connection, String id, boolean success, String nodeIP) {
-        header = new Header(protocol, connection);
+    protected RegisterAck(int protocol, NodeConnection connection, String id, boolean success, String nodeIP, String channel) {
+        header = new Header(protocol, connection, channel);
         this.success = success;
         if(success) {
             this.assignedID = id;

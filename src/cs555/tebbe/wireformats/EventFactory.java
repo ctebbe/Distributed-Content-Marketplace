@@ -24,8 +24,8 @@ public class EventFactory {
     }
 
     // REGISTER_REQ RESP
-    public static Event buildRegisterResponseEvent(NodeConnection connection, String id, boolean success, String node) throws IOException {
-        return new RegisterAck(Protocol.REGISTER_ACK, connection, id, success, node);
+    public static Event buildRegisterResponseEvent(NodeConnection connection, String id, boolean success, String node, String channel) throws IOException {
+        return new RegisterAck(Protocol.REGISTER_ACK, connection, id, success, node, channel);
     }
 
     // JOIN REQ

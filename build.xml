@@ -73,6 +73,7 @@
         <java classname="${package}.${peer.node}" fork="true">
             <classpath path="${dist}\${ant.project.name}.jar" />
             <arg value="${arg0}"/>
+            <arg value="${arg1}"/>
         </java>
     </target>
 

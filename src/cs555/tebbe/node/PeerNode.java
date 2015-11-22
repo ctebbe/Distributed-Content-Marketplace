@@ -19,13 +19,14 @@ public class PeerNode implements Node {
     public static final String BASE_SAVE_DIR = "/tmp/ctebbe/";
 
     private NodeConnection _DiscoveryNode = null;
+    private String id;
     private TCPServerThread serverThread = null;                                        // listens for incoming nodes
     private Map<String, NodeConnection> connectionsMap = new ConcurrentHashMap<>();     // buffers all current connections for reuse
-    private PeerNodeRouteHandler router;                                                // maintains leafset and routing table & related logic
+    private Map<String, PeerNodeRouteHandler> routerMap = new ConcurrentHashMap<>();
     private List<String> files = new ArrayList<>();
     private Log logger = new Log();                                                     // logs events and prints diagnostic messages
 
-    public PeerNode(String host, int port, boolean isCustomID) {
+    public PeerNode(String host, int port, boolean isCustomID, String channel) {
         try {
             serverThread = new TCPServerThread(this, new ServerSocket(DEFAULT_SERVER_PORT));
             serverThread.start();
@@ -44,7 +45,7 @@ public class PeerNode implements Node {
                 System.out.println("Peer Node ID?");
                 id = keyboard.nextLine();
             }
-            _DiscoveryNode.sendEvent(EventFactory.buildRegisterEvent(_DiscoveryNode, id, "default"));
+            _DiscoveryNode.sendEvent(EventFactory.buildRegisterEvent(_DiscoveryNode, id, channel));
         } catch(IOException ioe) {
             System.out.println("IOException thrown contacting DiscoveryNode:"+ioe.getMessage());
             ioe.printStackTrace();
@@ -70,12 +71,18 @@ public class PeerNode implements Node {
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
+            } else if(input.contains("sub")) {
+                String channel = input.split(" ")[1];
+                try {
+                    _DiscoveryNode.sendEvent(EventFactory.buildRegisterEvent(_DiscoveryNode, id, channel));
+                } catch (IOException e) { e.printStackTrace(); }
             }
             input = keyboard.nextLine();
         }
     }
 
     private void exitOverlay() throws IOException {
+        /*
         _DiscoveryNode.sendEvent(EventFactory.buildExitOverlayEvent(_DiscoveryNode, router._Identifier));
 
         // swap leafs
@@ -106,16 +113,18 @@ public class PeerNode implements Node {
             connection.sendEvent(EventFactory.buildFileStoreEvent(connection, fToMigrate.getName(), Files.readAllBytes(fToMigrate.toPath())));
             logger.printDiagnostic(fToMigrate);
         }
+        */
     }
 
     private void printState() {
-        System.out.println("ID:");
+        /*System.out.println("ID:");
         System.out.println(router._Identifier);
         System.out.println("Low leaf:");
         System.out.println(router.getLowLeaf().toString());
         System.out.println("High leaf:");
         System.out.println(router.getHighLeaf().toString());
         System.out.println(router.printTable());
+        */
     }
 
     public synchronized void onEvent(Event event){
@@ -173,6 +182,7 @@ public class PeerNode implements Node {
     }
 
     private void processRoutingTableUpdateEvent(NodeIDEvent event) {
+        PeerNodeRouteHandler router = routerMap.get(event.payload);
         router.updateTable(event.getHeader().getSenderKey(), event.nodeID);
         logger.printDiagnostic(router);
     }
@@ -192,6 +202,7 @@ public class PeerNode implements Node {
     }
 
     private void processFileStoreRequest(FileStoreLookupRequest event) throws IOException {
+        PeerNodeRouteHandler router = routerMap.get(event.getHeader().getChannel());
         String lookupID = router.lookup(event.getLookupID());
         if(!lookupID.equals(router._Identifier)) {                                          // re-route request to closer node
             NodeConnection forwardNode = getNodeConnection(router.queryIPFromNodeID(lookupID));
@@ -205,6 +216,7 @@ public class PeerNode implements Node {
     }
 
     private void processLeafsetUpdate(NodeIDEvent event) throws IOException {
+        PeerNodeRouteHandler router = routerMap.get(event.getHeader().getChannel());
         String ip = event.payload.isEmpty() ? event.getHeader().getSenderKey() : event.payload;
         if(event.lowLeaf) {
             router.setLowLeaf(new PeerNodeData(ip, event.nodeID));
@@ -232,6 +244,7 @@ public class PeerNode implements Node {
     }
 
     private void processJoinResponse(JoinResponse event) throws IOException {
+        PeerNodeRouteHandler router = routerMap.get(event.getHeader().getChannel());
         if(event.lowLeafIP.isEmpty() && event.highLeafIP.isEmpty()) { // no leafset, set each other as leaf set
             NodeConnection leafSetConnection = getNodeConnection(event.getHeader().getSenderKey());
             router.setLowLeaf(new PeerNodeData(leafSetConnection.getRemoteKey(), event.targetNodeID));
@@ -293,7 +306,7 @@ public class PeerNode implements Node {
             logger.printDiagnostic(router);
         }
         logger.printDiagnostic(event.route);
-        _DiscoveryNode.sendEvent(EventFactory.buildJoinCompleteEvent(_DiscoveryNode, router._Identifier, "default"));
+        _DiscoveryNode.sendEvent(EventFactory.buildJoinCompleteEvent(_DiscoveryNode, router._Identifier, event.getHeader().getChannel()));
     }
 
     private NodeConnection getNodeConnection(String key) {
@@ -309,7 +322,7 @@ public class PeerNode implements Node {
     }
 
     private void processJoinRequest(JoinLookupRequest event) throws IOException {
-
+        PeerNodeRouteHandler router = routerMap.get(event.getHeader().getChannel());
         boolean sendJoinResponse = false;
         if(router.getLowLeaf() == null && router.getHighLeaf() == null) {                       // first connection of the overlay, no neighbors yet
             sendJoinResponse = true;
@@ -336,15 +349,18 @@ public class PeerNode implements Node {
     private void processRegisterResponse(RegisterAck event) throws IOException {
         if(event.success) { // claimed and received ID
             logger.printDiagnostic(event);
-            router = new PeerNodeRouteHandler(event.assignedID);
+            PeerNodeRouteHandler router = new PeerNodeRouteHandler(event.assignedID);
             if(!event.randomNodeIP.isEmpty()) { // if first node in no node to contact
                 NodeConnection entryConnection = getNodeConnection(event.randomNodeIP);
                 entryConnection.sendEvent(EventFactory.buildJoinRequestEvent(entryConnection, router._Identifier));
             } else {
-                _DiscoveryNode.sendEvent(EventFactory.buildJoinCompleteEvent(_DiscoveryNode, event.assignedID, "default"));
+                _DiscoveryNode.sendEvent(EventFactory.buildJoinCompleteEvent(_DiscoveryNode, event.assignedID, event.getHeader().getChannel()));
             }
+
+            this.id = event.assignedID;
+            routerMap.put(event.getHeader().getChannel(), router);
         } else {
-            _DiscoveryNode.sendEvent(EventFactory.buildRegisterEvent(_DiscoveryNode, Util.getTimestampHexID(), "default"));
+            _DiscoveryNode.sendEvent(EventFactory.buildRegisterEvent(_DiscoveryNode, Util.getTimestampHexID(), event.getHeader().getChannel()));
         }
     }
 
@@ -357,6 +373,6 @@ public class PeerNode implements Node {
     }
 
     public static void main(String args[]) {
-        new PeerNode(args[0], DiscoveryNode.DEFAULT_SERVER_PORT, args.length > 1);
+        new PeerNode(args[0], DiscoveryNode.DEFAULT_SERVER_PORT, false, args[1]);
     }
 }

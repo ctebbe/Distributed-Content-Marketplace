@@ -130,7 +130,8 @@ public class DiscoveryNode implements Node {
         }
 
         NodeConnection connection = bufferMap.get(event.getHeader().getSenderKey());
-        connection.sendEvent(EventFactory.buildRegisterResponseEvent(connection, event.getNodeIDRequest(), success, getRandomPeerNode(event.channel)));
+        connection.sendEvent(EventFactory.buildRegisterResponseEvent(connection, event.getNodeIDRequest(),
+                success, getRandomPeerNode(event.getHeader().getChannel()), event.getHeader().getChannel()));
     }
 
     private String getRandomPeerNode(String channel) {

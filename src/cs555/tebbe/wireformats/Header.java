@@ -1,24 +1,41 @@
 package cs555.tebbe.wireformats;
-import cs555.tebbe.transport.*;
-import java.util.*;
+import cs555.tebbe.transport.NodeConnection;
+import cs555.tebbe.util.Util;
+
 import java.io.*;
-import java.net.*;
 public class Header implements Event {
 
     private int protocol;
     private String senderKey;
     private String receiverKey;
+    private String channel;
 
     public Header(int protocol, NodeConnection connection) {
         this.protocol = protocol;
         this.senderKey = connection.getLocalKey();
         this.receiverKey = connection.getRemoteKey();
+        channel = "default";
+    }
+
+    public Header(int protocol, NodeConnection connection, String channel) {
+        this.protocol = protocol;
+        this.senderKey = connection.getLocalKey();
+        this.receiverKey = connection.getRemoteKey();
+        this.channel = channel;
     }
 
     public Header(int protocol, String senderKey, String receiverKey) {
         this.protocol = protocol;
         this.senderKey = senderKey;
         this.receiverKey = receiverKey;
+        channel = "default";
+    }
+
+    public Header(int protocol, String senderKey, String receiverKey, String channel) {
+        this.protocol = protocol;
+        this.senderKey = senderKey;
+        this.receiverKey = receiverKey;
+        this.channel = channel;
     }
 
     // strips a header out of the input stream and returns a new header
@@ -38,7 +55,9 @@ public class Header implements Event {
         din.readFully(receiverBytes);
         String receiver = new String(receiverBytes);
 
-        return new Header(type, sender, receiver);
+        String channel = Util.readString(din);
+
+        return new Header(type, sender, receiver, channel);
     }
 
     public byte[] getBytes() throws IOException {
@@ -56,6 +75,8 @@ public class Header implements Event {
         byte[] receiverBytes = getReceiverKey().getBytes();
         dout.writeInt(receiverBytes.length);
         dout.write(receiverBytes);
+
+        Util.writeString(channel, dout);
 
         // clean up
         dout.flush();
@@ -75,6 +96,10 @@ public class Header implements Event {
 
     public String getReceiverKey() {
         return this.receiverKey;
+    }
+
+    public String getChannel() {
+        return this.channel;
     }
 
     @Override public String toString() {
