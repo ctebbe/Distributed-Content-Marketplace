@@ -50,7 +50,7 @@ public class DiscoveryNode implements Node {
         for(Map.Entry<String, Map<String, PeerNodeData>> channel : channelMap.entrySet()) {
             System.out.println("Channel: " + channel.getKey());
             for(Map.Entry<String, PeerNodeData> entry : channel.getValue().entrySet()) {
-                System.out.println("\t"+ entry.getKey() +":"+ entry.getValue());
+                System.out.println("\t"+ entry.getValue());
             }
         }
     }

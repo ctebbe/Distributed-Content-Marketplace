@@ -4,10 +4,10 @@
     <property name="build" value="build"/>
     <property name="dist" value="dist"/>
     <property name="src" value="src"/>
+    <property name="lib" value="lib"/>
 
     <property name="discovery.node" value="DiscoveryNode"/>
     <property name="peer.node" value="PeerNode"/>
-    <property name="data.node" value="DataStoreNode"/>
     <property name="package" value="cs555.tebbe.node"/>
 
     <target name="clean">
@@ -22,20 +22,45 @@
 
     <target name="compile" depends="init" >
         <javac destdir="${build}/classes" srcdir="${src}" includeantruntime="false">
-            <!--
             <classpath>
-                <pathelement path="lib/reed-solomon-erasure-coding.jar"/>
+                <!--
+                <pathelement path="lib/bitcoinj-core-0.12.3.jar"/>
+                <pathelement path="lib/guava-16.0.1.jar"/>
+                -->
+                <fileset dir="${lib}">
+                    <include name="**/*.jar" />
+                </fileset>
             </classpath>
-            -->
         </javac>
     </target>
 
     <target name="jar" depends="compile">
         <jar destfile="${dist}\${ant.project.name}.jar" basedir="${build}/classes">
+            <restrict>
+                <not>
+                    <or>
+                        <name name="**/*.RSA"/>
+                        <name name="**/*.SF"/>
+                        <name name="**/*.DSA"/>
+                    </or>
+                </not>
+                <archives>
+                    <zips>
+                        <fileset dir="${lib}" includes="**/*.jar"/>
+                    </zips>
+                </archives>
+            </restrict>
+            <manifest>
+                <attribute name="Main-Class" value="${package}.${discovery.node}"/>
+            </manifest>
+        </jar>
+        <!-- <jar destfile="${dist}\${ant.project.name}.jar" basedir="${build}/classes">
+            <zipgroupfileset dir="${lib}" includes="**/*.jar"/>
+            <zipfileset excludes="META-INF/**/*"></zipfileset>
             <manifest>
                 <attribute name="Main-Class" value="${package}.${discovery.node}" />
             </manifest>
-        </jar>
+        </jar> -->
     </target>
 
     <target name="discovery" depends="jar">
@@ -56,13 +81,6 @@
             <classpath path="${dist}\${ant.project.name}.jar" />
             <arg value="${arg0}"/>
             <arg value="${arg1}"/>
-        </java>
-    </target>
-
-    <target name="data" depends="jar">
-        <java classname="${package}.${data.node}" fork="true">
-            <classpath path="${dist}\${ant.project.name}.jar" />
-            <arg value="${arg0}"/>
         </java>
     </target>
 </project>
