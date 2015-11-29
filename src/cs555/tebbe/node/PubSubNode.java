@@ -2,6 +2,7 @@ package cs555.tebbe.node;
 
 import cs555.tebbe.bitcoin.BitcoinManager;
 import cs555.tebbe.data.ContentCache;
+import cs555.tebbe.data.FileManager;
 import cs555.tebbe.data.PeerNodeData;
 import cs555.tebbe.diagnostics.Log;
 import cs555.tebbe.encryption.EncryptionManager;
@@ -32,7 +33,7 @@ public class PubSubNode implements Node {
     private TCPServerThread serverThread = null;                                        // listens for incoming nodes
     private Map<String, NodeConnection> connectionsMap = new ConcurrentHashMap<>();     // buffers all current connections for reuse
     private Map<String, PeerNodeRouteHandler> routerMap = new ConcurrentHashMap<>();
-    private List<String> files = new ArrayList<>();
+    private FileManager fileManager = new FileManager();
     private Log logger = new Log();                                                     // logs events and prints diagnostic messages
     private EncryptionManager encryptionManager;
     private BitcoinManager bitcoinManager;
@@ -81,9 +82,9 @@ public class PubSubNode implements Node {
                 printState();
             } else if(input.contains("files")) {
                 System.out.println("Stored files:");
-                for(String fname : files) {
+                /*for(String fname : fileManager.fMap.values()) {
                     System.out.println("\t" + fname + "\t" + Util.getDataHexID(fname.getBytes()));
-                }
+                }*/
             } else if(input.contains("exit")) {
                 try {
                     exitOverlay();
@@ -271,14 +272,7 @@ public class PubSubNode implements Node {
     }
 
     private void processFileStore(StoreFile event) throws IOException {
-        File file = new File(BASE_SAVE_DIR + event.ID);
-        file.getParentFile().mkdirs();
-        FileOutputStream fos = new FileOutputStream(file);
-        fos.write(event.bytes);
-        fos.close();
-        files.add(event.ID);
-        logger.printDiagnostic(event);
-
+        fileManager.store(event);
         // send completion
         NodeConnection connection = getNodeConnection(event.getHeader().getSenderKey());
         connection.sendEvent(EventFactory.buildFileStoreCompleteEvent(connection,"",""));
@@ -308,7 +302,7 @@ public class PubSubNode implements Node {
         }
 
         // migrate any suitable files to new leaf
-        Iterator<String> fIterator = files.iterator();
+        Iterator<String> fIterator = fileManager.getIterator(event.getHeader().getChannel());
         while(fIterator.hasNext()) {
             String fname = fIterator.next();
             String fId = Util.getDataHexID(fname.getBytes());
