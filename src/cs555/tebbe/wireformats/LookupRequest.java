@@ -15,14 +15,14 @@ public class LookupRequest { //implements Event {
     private String[] route;
 
     protected LookupRequest() {}
-    protected LookupRequest(int protocol, NodeConnection connection, String lookupID, String myID) {
-        header = new Header(protocol, connection);
+    protected LookupRequest(int protocol, NodeConnection connection, String channel, String lookupID, String myID) {
+        header = new Header(protocol, connection, channel);
         this.lookupID = lookupID;
         route = new String[]{Util.removePort(connection.getLocalKey())+"\t"+myID};
     }
 
-    public LookupRequest(int protocol, NodeConnection connection, String lookupID, String[] oldRoute, String myID) {
-        header = new Header(protocol, connection);
+    public LookupRequest(int protocol, NodeConnection connection, String channel, String lookupID, String[] oldRoute, String myID) {
+        header = new Header(protocol, connection, channel);
         this.lookupID = lookupID;
         route = new String[oldRoute.length+1]; // copy over route and append self to it
         for(int i=0; i < oldRoute.length; i++)

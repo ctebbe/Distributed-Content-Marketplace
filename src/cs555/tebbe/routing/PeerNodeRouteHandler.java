@@ -57,6 +57,10 @@ public class PeerNodeRouteHandler {
         }
     }
 
+    public String getClosestNodeIP(String lookupID) {
+        return queryIPFromNodeID(lookup(lookupID));
+    }
+
     public List<PeerNodeData> findRow(String queryID) {
         return table.getRow(queryID);
     }

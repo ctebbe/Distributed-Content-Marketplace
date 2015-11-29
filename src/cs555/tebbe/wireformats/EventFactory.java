@@ -29,52 +29,52 @@ public class EventFactory {
     }
 
     // JOIN REQ
-    public static Event buildJoinRequestEvent(NodeConnection connection, String toLookup) throws IOException {
-        return new JoinLookupRequest(Protocol.JOIN_REQ, connection, toLookup, toLookup);
+    public static Event buildJoinRequestEvent(NodeConnection connection, String channel, String toLookup) throws IOException {
+        return new JoinLookupRequest(Protocol.JOIN_REQ, connection, channel, toLookup, toLookup);
     }
 
     public static Event buildJoinRequestEvent(NodeConnection connection, JoinLookupRequest event, String id, List<PeerNodeData> newRow) throws IOException {
         if(newRow.size() > 0)
             event.routingTable.add(newRow); // append new row to accumulated routing table
-        return new JoinLookupRequest(Protocol.JOIN_REQ, connection, event.getLookupID(), event.getRoute(), id, event.routingTable);
+        return new JoinLookupRequest(Protocol.JOIN_REQ, connection, event.getHeader().getChannel(), event.getLookupID(), event.getRoute(), id, event.routingTable);
     }
 
     // JOIN RESP
-    public static Event buildJoinResponseEvent(NodeConnection connection, String ID, PeerNodeData lowLeaf, PeerNodeData highLeaf, String[] route, List<List<PeerNodeData>> routingTable) throws IOException {
-        return new JoinResponse(Protocol.JOIN_RESP, connection, ID, lowLeaf, highLeaf, route, routingTable);
+    public static Event buildJoinResponseEvent(NodeConnection connection, String channel, String ID, PeerNodeData lowLeaf, PeerNodeData highLeaf, String[] route, List<List<PeerNodeData>> routingTable) throws IOException {
+        return new JoinResponse(Protocol.JOIN_RESP, connection, channel, ID, lowLeaf, highLeaf, route, routingTable);
     }
 
     // JOIN COMP
     public static Event buildJoinCompleteEvent(NodeConnection connection, String ID, String channel) throws IOException {
-        return new NodeIDEvent(Protocol.JOIN_COMP, connection, ID, channel);
+        return new NodeIDEvent(Protocol.JOIN_COMP, connection, channel, ID, channel);
     }
 
     // RANDOM PEER REQ
-    public static Event buildRandomPeerRequestEvent(NodeConnection connection) throws IOException {
-        return new RandomPeerNodeRequest(Protocol.RANDOM_PEER_REQ, connection);
+    public static Event buildRandomPeerRequestEvent(NodeConnection connection, String channel) throws IOException {
+        return new RandomPeerNodeRequest(Protocol.RANDOM_PEER_REQ, connection, channel);
     }
 
     // RANDOM PEER RESP
-    public static Event buildRandomPeerResponseEvent(NodeConnection connection, String IP) throws IOException {
-        return new RandomPeerNodeResponse(Protocol.RANDOM_PEER_RESP, connection, IP);
+    public static Event buildRandomPeerResponseEvent(NodeConnection connection, String channel, String IP) throws IOException {
+        return new RandomPeerNodeResponse(Protocol.RANDOM_PEER_RESP, connection, channel, IP);
     }
 
     // LEAF SET UPDATE
-    public static Event buildLeafsetUpdateEvent(NodeConnection connection, String ID, boolean lowLeaf) throws IOException {
-        return new NodeIDEvent(Protocol.LEAFSET_UPDATE, connection, ID, lowLeaf,"");
+    public static Event buildLeafsetUpdateEvent(NodeConnection connection, String channel, String ID, boolean lowLeaf) throws IOException {
+        return new NodeIDEvent(Protocol.LEAFSET_UPDATE, connection, channel, ID, lowLeaf,"");
     }
 
-    public static Event buildLeafsetUpdateEvent(NodeConnection connection, PeerNodeData leaf, boolean lowLeaf) throws IOException {
-        return new NodeIDEvent(Protocol.LEAFSET_UPDATE, connection, leaf.identifier, lowLeaf, leaf.host_port);
+    public static Event buildLeafsetUpdateEvent(NodeConnection connection, String channel, PeerNodeData leaf, boolean lowLeaf) throws IOException {
+        return new NodeIDEvent(Protocol.LEAFSET_UPDATE, connection, channel, leaf.identifier, lowLeaf, leaf.host_port);
     }
 
     // FILE STORE REQ
-    public static Event buildFileStoreRequestEvent(NodeConnection connection, String toLookup, String id) throws IOException {
-        return new FileStoreLookupRequest(Protocol.FILE_STORE_REQ, connection, toLookup, id);
+    public static Event buildFileStoreRequestEvent(NodeConnection connection, String channel, String toLookup, String id) throws IOException {
+        return new FileStoreLookupRequest(Protocol.FILE_STORE_REQ, connection, channel, toLookup, id);
     }
 
     public static Event buildFileStoreRequestEvent(NodeConnection connection, FileStoreLookupRequest event, String id) throws IOException {
-        return new FileStoreLookupRequest(Protocol.FILE_STORE_REQ, connection, event.getLookupID(), event.getRoute(), id);
+        return new FileStoreLookupRequest(Protocol.FILE_STORE_REQ, connection, event.getHeader().getChannel(), event.getLookupID(), event.getRoute(), id);
     }
 
     // FILE STORE RESP
@@ -83,23 +83,27 @@ public class EventFactory {
     }
 
     // FILE STORE
-    public static Event buildFileStoreEvent(NodeConnection connection, String fname, byte[] fbytes) throws IOException {
-        return new StoreFile(Protocol.FILE_STORE, connection, fname, fbytes);
+    public static Event buildFileStoreEvent(NodeConnection connection, String channel, String id, byte[] fbytes) throws IOException {
+        return new StoreFile(Protocol.FILE_STORE, connection, channel, id, fbytes);
     }
 
     // FILE STORE COMP
-    public static Event buildFileStoreCompleteEvent(NodeConnection connection, String fname) throws IOException {
-        return new NodeIDEvent(Protocol.FILE_STORE_COMP, connection, fname,"");
+    public static Event buildFileStoreCompleteEvent(NodeConnection connection, String channel, String fname) throws IOException {
+        return new NodeIDEvent(Protocol.FILE_STORE_COMP, connection, channel, fname,"");
     }
 
     // ROUTE TABLE UPDATE
-    public static Event buildRouteTableUpdateEvent(NodeConnection connection, String id) throws IOException {
-        return new NodeIDEvent(Protocol.TABLE_UPDATE, connection, id,"");
+    public static Event buildRouteTableUpdateEvent(NodeConnection connection, String channel, String id) throws IOException {
+        return new NodeIDEvent(Protocol.TABLE_UPDATE, connection, channel, id,"");
     }
 
     // EXIT OVERLAY
-    public static Event buildExitOverlayEvent(NodeConnection connection, String id) throws IOException {
-        return new NodeIDEvent(Protocol.EXIT, connection, id,"");
+    public static Event buildExitOverlayEvent(NodeConnection connection, String channel, String id) throws IOException {
+        return new NodeIDEvent(Protocol.EXIT, connection, channel, id,"");
+    }
+
+    public static Event buildPublishContentEvent(NodeConnection connection, String channel, String contentID, double price) {
+        return new PublishContent(Protocol.PUBLISH, connection, channel, price, contentID);
     }
 
     public static Event buildEvent(byte[] marshalledBytes) throws IOException {
@@ -136,6 +140,8 @@ public class EventFactory {
                     return new NodeIDEvent(marshalledBytes);
                 case Protocol.EXIT:
                     return new NodeIDEvent(marshalledBytes);
+                case Protocol.PUBLISH:
+                    return new PublishContent(marshalledBytes);
                 default: return null;
             }
         } catch(IOException ioe) { 

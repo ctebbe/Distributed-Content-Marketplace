@@ -10,12 +10,12 @@ import java.io.*;
 public class StoreFile implements Event {
 
     private final Header header;
-    public final String filename;
+    public final String ID;
     public final byte[] bytes;
 
-    protected StoreFile(int protocol, NodeConnection connection, String name, byte[] bytes) {
-        header = new Header(protocol, connection);
-        this.filename = name;
+    protected StoreFile(int protocol, NodeConnection connection, String channel, String name, byte[] bytes) {
+        header = new Header(protocol, connection, channel);
+        this.ID = name;
         this.bytes = bytes;
     }
 
@@ -26,11 +26,11 @@ public class StoreFile implements Event {
         // header
         this.header = Header.parseHeader(din);
 
-        // filename
+        // ID
         int nameLen = din.readInt();
         byte[] ipBytes = new byte[nameLen];
         din.readFully(ipBytes);
-        filename = new String(ipBytes);
+        ID = new String(ipBytes);
 
         // bytes
         int bLen = din.readInt();
@@ -49,8 +49,8 @@ public class StoreFile implements Event {
         // header
         dout.write(header.getBytes());
 
-        // filename
-        byte[] fBytes = filename.getBytes();
+        // ID
+        byte[] fBytes = ID.getBytes();
         dout.writeInt(fBytes.length);
         dout.write(fBytes);
 

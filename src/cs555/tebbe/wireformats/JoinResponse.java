@@ -26,9 +26,9 @@ public class JoinResponse implements Event {
     public final String[] route;
     public final List<List<PeerNodeData>> table;
 
-    protected JoinResponse(int protocol, NodeConnection connection, String ID, PeerNodeData lowLeaf, PeerNodeData highLeaf,
+    protected JoinResponse(int protocol, NodeConnection connection, String channel, String ID, PeerNodeData lowLeaf, PeerNodeData highLeaf,
                            String[] prevRoute, List<List<PeerNodeData>> routingTable) {
-        header = new Header(protocol, connection);
+        header = new Header(protocol, connection, channel);
 
         this.targetNodeID = ID;
 

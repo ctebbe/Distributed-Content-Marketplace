@@ -18,7 +18,7 @@ public class Log {
     private static int i=0;
     public static void printDiagnostic(NodeIDEvent event) {
         System.out.println();
-        log((++i) + "* New PeerNode joined");
+        log((++i) + "* New PubSubNode joined");
         log(event.getHeader().getSenderKey());
         log(event.nodeID);
         System.out.println();
@@ -77,7 +77,7 @@ public class Log {
 
     public void printDiagnostic(StoreFile event) {
         System.out.println();
-        log("Storing new file:" + event.filename);
+        log("Storing new file:" + event.ID);
         System.out.println();
     }
 

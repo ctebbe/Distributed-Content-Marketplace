@@ -7,7 +7,7 @@
     <property name="lib" value="lib"/>
 
     <property name="discovery.node" value="DiscoveryNode"/>
-    <property name="peer.node" value="PeerNode"/>
+    <property name="peer.node" value="PubSubNode"/>
     <property name="package" value="cs555.tebbe.node"/>
 
     <target name="clean">

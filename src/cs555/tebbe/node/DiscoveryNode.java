@@ -108,7 +108,7 @@ public class DiscoveryNode implements Node {
 
     private void processRandomPeerRequest(RandomPeerNodeRequest event) throws IOException {
         NodeConnection connection = bufferMap.get(event.getHeader().getSenderKey());
-        connection.sendEvent(EventFactory.buildRandomPeerResponseEvent(connection, getRandomPeerNode("default")));
+        connection.sendEvent(EventFactory.buildRandomPeerResponseEvent(connection, event.getHeader().getChannel(), getRandomPeerNode(event.getHeader().getChannel())));
     }
 
     private List<SubscribeRequest> reqQueue = new ArrayList<>();

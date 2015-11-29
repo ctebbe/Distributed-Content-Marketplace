@@ -12,8 +12,8 @@ public class RandomPeerNodeResponse implements Event {
     private final Header header;
     public final String nodeIP;
 
-    protected RandomPeerNodeResponse(int protocol, NodeConnection connection, String nodeIP) {
-        header = new Header(protocol, connection);
+    protected RandomPeerNodeResponse(int protocol, NodeConnection connection, String channel, String nodeIP) {
+        header = new Header(protocol, connection, channel);
         this.nodeIP = nodeIP;
     }
 

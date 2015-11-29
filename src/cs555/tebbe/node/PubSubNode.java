@@ -1,4 +1,6 @@
 package cs555.tebbe.node;
+
+import cs555.tebbe.bitcoin.BitcoinManager;
 import cs555.tebbe.data.ContentCache;
 import cs555.tebbe.data.PeerNodeData;
 import cs555.tebbe.diagnostics.Log;
@@ -33,15 +35,23 @@ public class PubSubNode implements Node {
     private List<String> files = new ArrayList<>();
     private Log logger = new Log();                                                     // logs events and prints diagnostic messages
     private EncryptionManager encryptionManager;
+    private BitcoinManager bitcoinManager;
 
     public PubSubNode(String host, int port, boolean isCustomID, String channel) {
         try {
             serverThread = new TCPServerThread(this, new ServerSocket(DEFAULT_SERVER_PORT));
             serverThread.start();
         } catch(IOException ioe) {
-            System.out.println("IOException thrown opening server thread:"+ioe.getMessage());
+            System.out.println("IOException thrown opening server thread:" + ioe.getMessage());
             System.exit(0);
         }
+
+        try {
+            String hostname = InetAddress.getLocalHost().getHostName();
+            encryptionManager = new EncryptionManager(hostname);
+            bitcoinManager = new BitcoinManager(hostname);
+        } catch (IOException e) { e.printStackTrace();
+        } catch (ClassNotFoundException e) { e.printStackTrace(); }
 
         try {
             _DiscoveryNode = ConnectionFactory.getInstance().buildConnection(this, new Socket(host, port));
@@ -55,15 +65,10 @@ public class PubSubNode implements Node {
             }
             _DiscoveryNode.sendEvent(EventFactory.buildRegisterEvent(_DiscoveryNode, id, channel));
         } catch(IOException ioe) {
-            System.out.println("IOException thrown contacting DiscoveryNode:"+ioe.getMessage());
+            System.out.println("IOException thrown contacting DiscoveryNode:" + ioe.getMessage());
             ioe.printStackTrace();
             System.exit(0);
         }
-
-        try {
-            encryptionManager = new EncryptionManager(InetAddress.getLocalHost().getHostName());
-        } catch (IOException e) { e.printStackTrace();
-        } catch (ClassNotFoundException e) { e.printStackTrace(); }
 
         run();
     }
@@ -103,6 +108,8 @@ public class PubSubNode implements Node {
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
+            } else if(input.contains("add")) {
+                System.out.println(bitcoinManager.getFreshAddress());
             }
             input = keyboard.nextLine();
         }
@@ -274,7 +281,7 @@ public class PubSubNode implements Node {
 
         // send completion
         NodeConnection connection = getNodeConnection(event.getHeader().getSenderKey());
-        connection.sendEvent(EventFactory.buildFileStoreCompleteEvent(connection,""));
+        connection.sendEvent(EventFactory.buildFileStoreCompleteEvent(connection,"",""));
     }
 
     private void processFileStoreRequest(FileStoreLookupRequest event) throws IOException {
@@ -320,13 +327,14 @@ public class PubSubNode implements Node {
     }
 
     private void processJoinResponse(JoinResponse event) throws IOException {
-        PeerNodeRouteHandler router = routerMap.get(event.getHeader().getChannel());
+        String channel = event.getHeader().getChannel();
+        PeerNodeRouteHandler router = routerMap.get(channel);
         if(event.lowLeafIP.isEmpty() && event.highLeafIP.isEmpty()) { // no leafset, set each other as leaf set
             NodeConnection leafSetConnection = getNodeConnection(event.getHeader().getSenderKey());
             router.setLowLeaf(new PeerNodeData(leafSetConnection.getRemoteKey(), event.targetNodeID));
             router.setHighLeaf(new PeerNodeData(leafSetConnection.getRemoteKey(), event.targetNodeID));
-            leafSetConnection.sendEvent(EventFactory.buildLeafsetUpdateEvent(leafSetConnection, router._Identifier, false));
-            leafSetConnection.sendEvent(EventFactory.buildLeafsetUpdateEvent(leafSetConnection, router._Identifier, true));
+            leafSetConnection.sendEvent(EventFactory.buildLeafsetUpdateEvent(leafSetConnection, channel, router._Identifier, false));
+            leafSetConnection.sendEvent(EventFactory.buildLeafsetUpdateEvent(leafSetConnection, channel, router._Identifier, true));
 
         } else if(event.lowLeafIP.equals(event.highLeafIP)) { // 3rd node in, must position between them
             NodeConnection senderLeafConnection = getNodeConnection(event.getHeader().getSenderKey());
@@ -347,8 +355,8 @@ public class PubSubNode implements Node {
                 router.setLowLeaf(new PeerNodeData(senderLeafConnection.getRemoteKey(), id_1));
                 router.setHighLeaf(new PeerNodeData(otherLeafConnection.getRemoteKey(), id_2));
             }
-            senderLeafConnection.sendEvent(EventFactory.buildLeafsetUpdateEvent(senderLeafConnection, router._Identifier, isSenderLowLeaf));
-            otherLeafConnection.sendEvent(EventFactory.buildLeafsetUpdateEvent(otherLeafConnection, router._Identifier, !isSenderLowLeaf));
+            senderLeafConnection.sendEvent(EventFactory.buildLeafsetUpdateEvent(senderLeafConnection, channel, router._Identifier, isSenderLowLeaf));
+            otherLeafConnection.sendEvent(EventFactory.buildLeafsetUpdateEvent(otherLeafConnection, channel, router._Identifier, !isSenderLowLeaf));
 
         } else { // join lookup result
             boolean isSenderLowLeaf = Util.getHexDifference(event.targetNodeID, router._Identifier) > 0;
@@ -364,11 +372,11 @@ public class PubSubNode implements Node {
                 router.setHighLeaf(new PeerNodeData(otherLeafConnection.getRemoteKey(), event.highLeafIdentifier));
             }
 
-            senderLeafConnection.sendEvent(EventFactory.buildLeafsetUpdateEvent(senderLeafConnection, router._Identifier, isSenderLowLeaf));
-            senderLeafConnection.sendEvent(EventFactory.buildRouteTableUpdateEvent(senderLeafConnection, router._Identifier));
+            senderLeafConnection.sendEvent(EventFactory.buildLeafsetUpdateEvent(senderLeafConnection, channel, router._Identifier, isSenderLowLeaf));
+            senderLeafConnection.sendEvent(EventFactory.buildRouteTableUpdateEvent(senderLeafConnection, channel, router._Identifier));
 
-            otherLeafConnection.sendEvent(EventFactory.buildLeafsetUpdateEvent(otherLeafConnection, router._Identifier, !isSenderLowLeaf));
-            otherLeafConnection.sendEvent(EventFactory.buildRouteTableUpdateEvent(otherLeafConnection, router._Identifier));
+            otherLeafConnection.sendEvent(EventFactory.buildLeafsetUpdateEvent(otherLeafConnection, channel, router._Identifier, !isSenderLowLeaf));
+            otherLeafConnection.sendEvent(EventFactory.buildRouteTableUpdateEvent(otherLeafConnection, channel, router._Identifier));
 
             router.updateTableEntries(event.table);
             for(PeerNodeData entry : router.getAllEntries()) { // update all nodes in the routing table
@@ -376,7 +384,7 @@ public class PubSubNode implements Node {
                 if(!(connection.getRemoteKey().equals(senderLeafConnection.getRemoteKey()) ||
                         connection.getRemoteKey().equals(otherLeafConnection.getRemoteKey()))) { // avoid double-sending updates to the leafset
 
-                    connection.sendEvent(EventFactory.buildRouteTableUpdateEvent(connection, router._Identifier));
+                    connection.sendEvent(EventFactory.buildRouteTableUpdateEvent(connection, channel, router._Identifier));
                 }
             }
             logger.printDiagnostic(router);
@@ -417,7 +425,7 @@ public class PubSubNode implements Node {
 
         if(sendJoinResponse) {                                                                  // send leafset to the query node
             NodeConnection newNode = getNodeConnection(event.getQueryNodeIP());
-            newNode.sendEvent(EventFactory.buildJoinResponseEvent(newNode, router._Identifier,
+            newNode.sendEvent(EventFactory.buildJoinResponseEvent(newNode, event.getHeader().getChannel(), router._Identifier,
                     router.getLowLeaf(), router.getHighLeaf(), event.getRoute(), event.routingTable));
         }
     }

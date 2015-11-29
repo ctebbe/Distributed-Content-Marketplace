@@ -1,38 +1,46 @@
 package cs555.tebbe.wireformats;
 
 import cs555.tebbe.transport.NodeConnection;
+import cs555.tebbe.util.Util;
 
 import java.io.*;
 
 /**
  * Created by ctebbe
  */
-public class RandomPeerNodeRequest implements Event {
+public class PublishContent implements Event {
 
-    private final Header header;
+    public Header header;
+    public String contentID;
+    public double price;
 
-    protected RandomPeerNodeRequest(int protocol, NodeConnection connection, String channel) {
-        header = new Header(protocol, connection, channel);
+    protected PublishContent(int protocol, NodeConnection nc, String channel, double price, String contentID) {
+        header = new Header(protocol, nc, channel);
+        this.contentID = contentID;
+        this.price = price;
     }
 
-    protected RandomPeerNodeRequest(byte[] marshalledBytes) throws IOException {
+    protected PublishContent(byte[] marshalledBytes) throws IOException {
         ByteArrayInputStream bais = new ByteArrayInputStream(marshalledBytes);
         DataInputStream din = new DataInputStream(new BufferedInputStream(bais));
 
-        // header
-        this.header = Header.parseHeader(din);
+        header = Header.parseHeader(din);
+        contentID = Util.readString(din);
+        price = din.readDouble();
 
         bais.close();
         din.close();
     }
 
+    @Override
     public byte[] getBytes() throws IOException {
         byte[] marshalledBytes;
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DataOutputStream dout = new DataOutputStream(new BufferedOutputStream(baos));
 
-        // header
         dout.write(header.getBytes());
+        Util.writeString(contentID, dout);
+        dout.writeDouble(price);
 
         // clean up
         dout.flush();
@@ -42,11 +50,8 @@ public class RandomPeerNodeRequest implements Event {
         return marshalledBytes;
     }
 
+    @Override
     public int getType() {
-        return this.header.getType();
-    }
-
-    public Header getHeader() {
-        return this.header;
+        return header.getType();
     }
 }

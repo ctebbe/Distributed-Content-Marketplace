@@ -26,8 +26,7 @@ public class RoutingTable {
             Iterator<PeerNodeData> rowIter = row.iterator();
             while(rowIter.hasNext()) {
                 PeerNodeData entry = rowIter.next();
-                if(entry.identifier.charAt(rowIndex) == newData.identifier.charAt(rowIndex))
-                    rowIter.remove();
+                // if(entry.identifier.charAt(rowIndex) == newData.identifier.charAt(rowIndex)) rowIter.remove();
             }
             row.add(newData);
         }

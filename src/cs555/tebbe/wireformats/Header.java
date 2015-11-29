@@ -10,13 +10,6 @@ public class Header implements Event {
     private String receiverKey;
     private String channel;
 
-    public Header(int protocol, NodeConnection connection) {
-        this.protocol = protocol;
-        this.senderKey = connection.getLocalKey();
-        this.receiverKey = connection.getRemoteKey();
-        channel = "default";
-    }
-
     public Header(int protocol, NodeConnection connection, String channel) {
         this.protocol = protocol;
         this.senderKey = connection.getLocalKey();

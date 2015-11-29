@@ -14,15 +14,15 @@ public class NodeIDEvent implements Event {
     public final String payload;
     public final boolean lowLeaf;
 
-    protected NodeIDEvent(int protocol, NodeConnection connection, String nodeID, String payload) {
-        header = new Header(protocol, connection);
+    protected NodeIDEvent(int protocol, NodeConnection connection, String channel, String nodeID, String payload) {
+        header = new Header(protocol, connection, channel);
         this.nodeID = nodeID;
         lowLeaf = false;
         this.payload = payload;
     }
 
-    protected NodeIDEvent(int protocol, NodeConnection connection, String nodeID, boolean isLow, String ip) {
-        header = new Header(protocol, connection);
+    protected NodeIDEvent(int protocol, NodeConnection connection, String channel, String nodeID, boolean isLow, String ip) {
+        header = new Header(protocol, connection, channel);
         this.nodeID = nodeID;
         lowLeaf = isLow;
         payload = ip;

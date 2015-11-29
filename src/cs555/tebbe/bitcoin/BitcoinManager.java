@@ -20,11 +20,50 @@ public class BitcoinManager {
     public BitcoinManager(String walletName) {
         NetworkParameters params = TestNet3Params.get();
         walletKit = new WalletAppKit(params, new File("./wallets"), walletName);
+        walletKit.startAsync();
+        walletKit.awaitRunning();
         walletKit.wallet().addEventListener(new WalletListener());
-        //walletKit.startAsync();
-        //walletKit.awaitRunning();
     }
+
+    public String getFreshAddress() {
+        return walletKit.wallet().freshReceiveAddress().toString();
+    }
+
+    static class WalletListener extends AbstractWalletEventListener {
+
+        @Override
+        public void onCoinsReceived(Wallet wallet, Transaction tx, Coin prevBalance, Coin newBalance) {
+            System.out.println("-----> coins received: " + tx.getHashAsString());
+            System.out.println("received: " + tx.getValue(wallet));
+        }
+
+        @Override
+        public void onTransactionConfidenceChanged(Wallet wallet, Transaction tx) {
+            //System.out.println("-----> confidence changed: " + tx.getHashAsString());
+            //TransactionConfidence confidence = tx.getConfidence();
+            //System.out.println("new block depth: " + confidence.getDepthInBlocks());
+        }
+
+        @Override
+        public void onCoinsSent(Wallet wallet, Transaction tx, Coin prevBalance, Coin newBalance) {
+            System.out.println("coins sent");
+        }
+
+        @Override
+        public void onReorganize(Wallet wallet) {
+        }
+
+        @Override
+        public void onWalletChanged(Wallet wallet) {
+        }
+
+        @Override
+        public void onKeysAdded(List<ECKey> keys) {
+        }
+    }
+
     public static void main(String[] args) throws UnreadableWalletException, BlockStoreException, UnknownHostException, AddressFormatException, InsufficientMoneyException {
+        /*
         NetworkParameters params = TestNet3Params.get();
         WalletAppKit kit = new WalletAppKit(params, new File("."), "walletappkit");
         //kit.startAsync();
@@ -32,7 +71,6 @@ public class BitcoinManager {
 
         System.out.println(kit.wallet().freshReceiveAddress());
         System.out.println(kit.wallet().freshReceiveAddress());
-        /*
         Address destination = new Address(params, "n2eMqTT929pb1RDNuqEnxdaLau1rxy3efi");
         kit.wallet().sendCoins(kit.peerGroup(), destination, Coin.parseCoin("0.01"));
         System.out.println(kit.wallet().getBalance().toFriendlyString());
@@ -57,38 +95,5 @@ public class BitcoinManager {
         wallet.sendCoins(peerGroup, destination, Coin.parseCoin("0.01"));
         System.out.println(wallet.getBalance().toFriendlyString());
         */
-    }
-
-    static class WalletListener extends AbstractWalletEventListener {
-
-        @Override
-        public void onCoinsReceived(Wallet wallet, Transaction tx, Coin prevBalance, Coin newBalance) {
-            System.out.println("-----> coins received: " + tx.getHashAsString());
-            System.out.println("received: " + tx.getValue(wallet));
-        }
-
-        @Override
-        public void onTransactionConfidenceChanged(Wallet wallet, Transaction tx) {
-            System.out.println("-----> confidence changed: " + tx.getHashAsString());
-            TransactionConfidence confidence = tx.getConfidence();
-            System.out.println("new block depth: " + confidence.getDepthInBlocks());
-        }
-
-        @Override
-        public void onCoinsSent(Wallet wallet, Transaction tx, Coin prevBalance, Coin newBalance) {
-            System.out.println("coins sent");
-        }
-
-        @Override
-        public void onReorganize(Wallet wallet) {
-        }
-
-        @Override
-        public void onWalletChanged(Wallet wallet) {
-        }
-
-        @Override
-        public void onKeysAdded(List<ECKey> keys) {
-        }
     }
 }
