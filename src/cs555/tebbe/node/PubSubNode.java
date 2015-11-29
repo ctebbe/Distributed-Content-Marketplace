@@ -1,19 +1,26 @@
 package cs555.tebbe.node;
+import cs555.tebbe.data.ContentCache;
 import cs555.tebbe.data.PeerNodeData;
 import cs555.tebbe.diagnostics.Log;
+import cs555.tebbe.encryption.EncryptionManager;
 import cs555.tebbe.routing.PeerNodeRouteHandler;
-import cs555.tebbe.transport.*;
+import cs555.tebbe.transport.ConnectionFactory;
+import cs555.tebbe.transport.NodeConnection;
+import cs555.tebbe.transport.TCPServerThread;
 import cs555.tebbe.util.Util;
 import cs555.tebbe.wireformats.*;
-import cs555.tebbe.wireformats.RegisterAck;
 
-import java.io.*;
-import java.net.*;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.nio.file.Files;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class PeerNode implements Node {
+public class PubSubNode implements Node {
 
     public static final int DEFAULT_SERVER_PORT = 18081;
     public static final String BASE_SAVE_DIR = "/tmp/ctebbe/";
@@ -25,8 +32,9 @@ public class PeerNode implements Node {
     private Map<String, PeerNodeRouteHandler> routerMap = new ConcurrentHashMap<>();
     private List<String> files = new ArrayList<>();
     private Log logger = new Log();                                                     // logs events and prints diagnostic messages
+    private EncryptionManager encryptionManager;
 
-    public PeerNode(String host, int port, boolean isCustomID, String channel) {
+    public PubSubNode(String host, int port, boolean isCustomID, String channel) {
         try {
             serverThread = new TCPServerThread(this, new ServerSocket(DEFAULT_SERVER_PORT));
             serverThread.start();
@@ -37,7 +45,7 @@ public class PeerNode implements Node {
 
         try {
             _DiscoveryNode = ConnectionFactory.getInstance().buildConnection(this, new Socket(host, port));
-            String id;
+            //String id;
             if(!isCustomID)
                 id = Util.getTimestampHexID();
             else {
@@ -51,6 +59,12 @@ public class PeerNode implements Node {
             ioe.printStackTrace();
             System.exit(0);
         }
+
+        try {
+            encryptionManager = new EncryptionManager(InetAddress.getLocalHost().getHostName());
+        } catch (IOException e) { e.printStackTrace();
+        } catch (ClassNotFoundException e) { e.printStackTrace(); }
+
         run();
     }
 
@@ -76,9 +90,34 @@ public class PeerNode implements Node {
                 try {
                     _DiscoveryNode.sendEvent(EventFactory.buildRegisterEvent(_DiscoveryNode, id, channel));
                 } catch (IOException e) { e.printStackTrace(); }
+            } else if(input.contains("pub")) {
+                String channel = input.split(" ")[1];
+                System.out.println("Enter content:");
+                String content = keyboard.nextLine();
+                System.out.println("Enter contentID:");
+                String id = keyboard.nextLine();
+                System.out.println("Enter price:");
+                String price = keyboard.nextLine();
+                try {
+                    initPublishContent(channel, content.getBytes(), id, Double.parseDouble(price));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
             input = keyboard.nextLine();
         }
+    }
+
+    private ContentCache cache = new ContentCache();
+    private void initPublishContent(String channel, byte[] contentBytes, String contentID, double price) throws IOException {
+        cache = new ContentCache(contentID, channel, contentBytes, price);
+        NodeConnection toSend = getNodeConnection(routerMap.get(channel).getClosestNodeIP(cache.ID));
+        toSend.sendEvent(EventFactory.buildFileStoreRequestEvent(toSend, channel, cache.ID, routerMap.get(channel)._Identifier));
+    }
+
+    private void publishCachedContent() {
+        NodeConnection toSend = getNodeConnection(routerMap.get(cache.channel).getHighLeaf().host_port);
+        toSend.sendEvent(EventFactory.buildPublishContentEvent(toSend, cache.channel, cache.ID, cache.price));
     }
 
     private void exitOverlay() throws IOException {
@@ -117,6 +156,7 @@ public class PeerNode implements Node {
     }
 
     private void printState() {
+
         /*System.out.println("ID:");
         System.out.println(router._Identifier);
         System.out.println("Low leaf:");
@@ -159,26 +199,62 @@ public class PeerNode implements Node {
                 break;
             case Protocol.FILE_STORE_REQ:
                 try {
+                    System.out.println("file store request");
                     processFileStoreRequest((FileStoreLookupRequest) event);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                break;
+            case Protocol.FILE_STORE_RESP:
+                try {
+                    System.out.println("file store response");
+                    processFileStoreResponse((FileStoreLookupResponse) event);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
                 break;
             case Protocol.FILE_STORE:
                 try {
+                    System.out.println("storing file");
                     processFileStore((StoreFile) event);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
                 break;
+            case Protocol.FILE_STORE_COMP:
+                publishCachedContent();
+                break;
             case Protocol.TABLE_UPDATE:
                 processRoutingTableUpdateEvent((NodeIDEvent) event);
                 break;
-            case Protocol.FILE_STORE_COMP: // ignore
+            case Protocol.PUBLISH:
+                try {
+                    processPublishContentEvent((PublishContent) event);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
                 break;
             default:
                 System.out.println("Unknown event type");
         }
+    }
+
+    private void processFileStoreResponse(FileStoreLookupResponse event) throws IOException {
+        NodeConnection toSend = getNodeConnection(event.getHeader().getSenderKey());
+        toSend.sendEvent(EventFactory.buildFileStoreEvent(toSend, cache.channel, cache.ID, encryptionManager.encrypt(cache.content)));
+    }
+
+    private void processPublishContentEvent(PublishContent event) throws IOException {
+        System.out.println("Publish content event");
+        System.out.println(event.header.getChannel());
+        System.out.println(event.contentID);
+        System.out.println(event.price);
+
+        if(!event.contentID.equals(cache.ID)) {
+            NodeConnection toSend = getNodeConnection(Util.removePort(routerMap.get(event.header.getChannel()).getHighLeaf().host_port));
+            toSend.sendEvent(EventFactory.buildPublishContentEvent(toSend, event.header.getChannel(), event.contentID, event.price));
+        } else
+            cache = new ContentCache();
     }
 
     private void processRoutingTableUpdateEvent(NodeIDEvent event) {
@@ -188,12 +264,12 @@ public class PeerNode implements Node {
     }
 
     private void processFileStore(StoreFile event) throws IOException {
-        File file = new File(BASE_SAVE_DIR + event.filename);
+        File file = new File(BASE_SAVE_DIR + event.ID);
         file.getParentFile().mkdirs();
         FileOutputStream fos = new FileOutputStream(file);
         fos.write(event.bytes);
         fos.close();
-        files.add(event.filename);
+        files.add(event.ID);
         logger.printDiagnostic(event);
 
         // send completion
@@ -236,7 +312,7 @@ public class PeerNode implements Node {
                 File fToMigrate = new File(BASE_SAVE_DIR + fname);
                 NodeConnection connection = getNodeConnection(event.getHeader().getSenderKey());
 
-                connection.sendEvent(EventFactory.buildFileStoreEvent(connection, fToMigrate.getName(), Files.readAllBytes(fToMigrate.toPath())));
+                connection.sendEvent(EventFactory.buildFileStoreEvent(connection, event.getHeader().getChannel(), fToMigrate.getName(), Files.readAllBytes(fToMigrate.toPath())));
                 logger.printDiagnostic(fToMigrate);
                 fIterator.remove();
             }
@@ -352,7 +428,7 @@ public class PeerNode implements Node {
             PeerNodeRouteHandler router = new PeerNodeRouteHandler(event.assignedID);
             if(!event.randomNodeIP.isEmpty()) { // if first node in no node to contact
                 NodeConnection entryConnection = getNodeConnection(event.randomNodeIP);
-                entryConnection.sendEvent(EventFactory.buildJoinRequestEvent(entryConnection, router._Identifier));
+                entryConnection.sendEvent(EventFactory.buildJoinRequestEvent(entryConnection, event.getHeader().getChannel(), router._Identifier));
             } else {
                 _DiscoveryNode.sendEvent(EventFactory.buildJoinCompleteEvent(_DiscoveryNode, event.assignedID, event.getHeader().getChannel()));
             }
@@ -373,6 +449,6 @@ public class PeerNode implements Node {
     }
 
     public static void main(String args[]) {
-        new PeerNode(args[0], DiscoveryNode.DEFAULT_SERVER_PORT, false, args[1]);
+        new PubSubNode(args[0], DiscoveryNode.DEFAULT_SERVER_PORT, false, args[1]);
     }
 }
