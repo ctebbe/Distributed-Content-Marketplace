@@ -19,9 +19,7 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Files;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Scanner;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class PubSubNode implements Node {
@@ -52,7 +50,7 @@ public class PubSubNode implements Node {
         try {
             String hostname = InetAddress.getLocalHost().getHostName();
             encryptionManager = new EncryptionManager(hostname);
-            bitcoinManager = new BitcoinManager(hostname);
+            bitcoinManager = new BitcoinManager(this, hostname);
         } catch (IOException e) { e.printStackTrace();
         } catch (ClassNotFoundException e) { e.printStackTrace(); }
 
@@ -72,7 +70,7 @@ public class PubSubNode implements Node {
             ioe.printStackTrace();
             System.exit(0);
         }
-
+        //new Timer().schedule(new HeartbeatTaskManager(), 0, MINOR_HB_SECONDS*1000);
         run();
     }
 
@@ -290,8 +288,24 @@ public class PubSubNode implements Node {
         }
     }
 
+    private List<DecryptRequest> decryptRequestBuffer = new ArrayList<>();
     private void processDecryptRequest(DecryptRequest event) {
-        System.out.println("did get payment?:" + bitcoinManager.didReceiveTransactionHash(event.txHash));
+        if(bitcoinManager.didReceiveTransactionHash(event.txHash))
+            decryptRequestBuffer.add(event);
+        else
+            sendDecryptResponse(event);
+    }
+
+    public synchronized void paymentReceived(String txHash) {
+        for(DecryptRequest req : decryptRequestBuffer) {
+            if(req.txHash.equals(txHash))
+                sendDecryptResponse(req);
+        }
+    }
+
+    private void sendDecryptResponse(DecryptRequest event) {
+        NodeConnection toSend = getNodeConnection(event.getHeader().getSenderKey());
+        // decrypt event..
         System.out.println(new String(encryptionManager.decrypt(event.content)));
     }
 
@@ -527,4 +541,27 @@ public class PubSubNode implements Node {
     public static void main(String args[]) {
         new PubSubNode(args[0], DiscoveryNode.DEFAULT_SERVER_PORT, false, args[1]);
     }
+    /*
+private class HeartbeatTaskManager extends TimerTask {
+}
+private final int ratioMinorToMajor = 10;
+private AtomicInteger numHeartbeats = new AtomicInteger(0);
+
+@Override public void run() {
+if(numHeartbeats.incrementAndGet() % ratioMinorToMajor == 0) {
+try {
+_Controller.sendEvent(EventFactory.buildMajorHeartbeat(_Controlle
+} catch (IOException e) { System.out.println("Error sending major hea
+//System.out.println("major heartbeat");
+} else
+try {
+synchronized (newChunksStored) {
+_Controller.sendEvent(EventFactory.buildMinorHeartbeat(_Contr
+newChunksStored.clear();
+}
+} catch (IOException e) { System.out.println("Error sending minor hea
+//System.out.println("minor heartbeat");
+}
+}
+*/
 }

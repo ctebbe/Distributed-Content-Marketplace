@@ -123,6 +123,10 @@ public class EventFactory {
         return new DecryptRequest(Protocol.DECRYPT_REQ, forwardNode, channel, hash, content);
     }
 
+    public static Event buildDecryptResponseEvent(NodeConnection forwardNode, String channel, String hash, byte[] content) {
+        return new DecryptResponse(Protocol.DECRYPT_RESP, forwardNode, channel, hash, content);
+    }
+
     public static Event buildEvent(byte[] marshalledBytes) throws IOException {
         try {
             ByteArrayInputStream bais = new ByteArrayInputStream(marshalledBytes);
@@ -165,6 +169,8 @@ public class EventFactory {
                     return new DownloadFileResponse(marshalledBytes);
                 case Protocol.DECRYPT_REQ:
                     return new DecryptRequest(marshalledBytes);
+                case Protocol.DECRYPT_RESP:
+                    return new DecryptResponse(marshalledBytes);
                 default: return null;
             }
         } catch(IOException ioe) { 

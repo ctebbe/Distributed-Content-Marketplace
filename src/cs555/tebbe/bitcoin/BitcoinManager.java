@@ -1,5 +1,6 @@
 package cs555.tebbe.bitcoin;
 
+import cs555.tebbe.node.PubSubNode;
 import org.bitcoinj.core.*;
 import org.bitcoinj.kits.WalletAppKit;
 import org.bitcoinj.params.TestNet3Params;
@@ -21,14 +22,16 @@ public class BitcoinManager {
 
     NetworkParameters params;
     WalletAppKit walletKit;
+    PubSubNode node;
     List<String> txHashBuffer = new ArrayList<>();
 
-    public BitcoinManager(String walletName) {
+    public BitcoinManager(PubSubNode node, String walletName) {
         params = TestNet3Params.get();
         walletKit = new WalletAppKit(params, new File("./wallets"), walletName);
         walletKit.startAsync();
         walletKit.awaitRunning();
         walletKit.wallet().addEventListener(new WalletListener());
+        this.node = node;
     }
 
     public boolean didReceiveTransactionHash(String queryHash) {
@@ -61,6 +64,8 @@ public class BitcoinManager {
         @Override
         public void onCoinsReceived(Wallet wallet, Transaction tx, Coin prevBalance, Coin newBalance) {
             txHashBuffer.add(tx.getHashAsString());
+            node.paymentReceived(tx.getHashAsString());
+            /*
             System.out.println("Bitcoin received");
             System.out.println(wallet.currentReceiveAddress());
             System.out.println("received" + tx.getHashAsString());
@@ -77,6 +82,7 @@ public class BitcoinManager {
                 System.out.println(to);
                 System.out.println();
             }
+            */
         }
 
         @Override
