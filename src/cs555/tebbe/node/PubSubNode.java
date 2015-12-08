@@ -1,9 +1,7 @@
 package cs555.tebbe.node;
 
 import cs555.tebbe.bitcoin.BitcoinManager;
-import cs555.tebbe.data.ContentCache;
-import cs555.tebbe.data.FileManager;
-import cs555.tebbe.data.PeerNodeData;
+import cs555.tebbe.data.*;
 import cs555.tebbe.diagnostics.Log;
 import cs555.tebbe.encryption.EncryptionManager;
 import cs555.tebbe.routing.PeerNodeRouteHandler;
@@ -12,15 +10,18 @@ import cs555.tebbe.transport.NodeConnection;
 import cs555.tebbe.transport.TCPServerThread;
 import cs555.tebbe.util.Util;
 import cs555.tebbe.wireformats.*;
+import org.bitcoinj.core.AddressFormatException;
+import org.bitcoinj.core.InsufficientMoneyException;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Files;
-import java.util.*;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Scanner;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class PubSubNode implements Node {
@@ -37,6 +38,7 @@ public class PubSubNode implements Node {
     private Log logger = new Log();                                                     // logs events and prints diagnostic messages
     private EncryptionManager encryptionManager;
     private BitcoinManager bitcoinManager;
+    private ContentFeed feed = new ContentFeed();
 
     public PubSubNode(String host, int port, boolean isCustomID, String channel) {
         try {
@@ -110,10 +112,26 @@ public class PubSubNode implements Node {
                     e.printStackTrace();
                 }
             } else if(input.contains("add")) {
-                System.out.println(bitcoinManager.getFreshAddress());
+                System.out.println(bitcoinManager.getCurrentAddress());
+            } else if(input.contains("bal")) {
+                System.out.println(bitcoinManager.getBalance());
+            } else if(input.contains("purch")) {
+                String channel = input.split(" ")[1];
+                System.out.println(feed.getFeed(channel));
+                String index = keyboard.nextLine();
+                ContentStoreData record = feed.getContent(channel, Integer.parseInt(index));
+                try {
+                    processPurchase(channel, record);
+                } catch (IOException e) { e.printStackTrace(); }
             }
             input = keyboard.nextLine();
         }
+    }
+
+    private synchronized void processPurchase(String channel, ContentStoreData record) throws IOException {
+        PeerNodeRouteHandler handler = routerMap.get(channel);
+        NodeConnection toSend = getNodeConnection(handler.getClosestNodeIP(record.ID));
+        toSend.sendEvent(EventFactory.buildFileDownloadRequestEvent(toSend, channel, record.ID, handler._Identifier));
     }
 
     private ContentCache cache = new ContentCache();
@@ -125,7 +143,7 @@ public class PubSubNode implements Node {
 
     private void publishCachedContent() {
         NodeConnection toSend = getNodeConnection(routerMap.get(cache.channel).getHighLeaf().host_port);
-        toSend.sendEvent(EventFactory.buildPublishContentEvent(toSend, cache.channel, cache.ID, cache.price));
+        toSend.sendEvent(EventFactory.buildPublishContentEvent(toSend, cache.channel, cache.ID, cache.price, bitcoinManager.getFreshAddress(), Util.removePort(toSend.getLocalKey())));
     }
 
     private void exitOverlay() throws IOException {
@@ -164,15 +182,16 @@ public class PubSubNode implements Node {
     }
 
     private void printState() {
-
-        /*System.out.println("ID:");
-        System.out.println(router._Identifier);
-        System.out.println("Low leaf:");
-        System.out.println(router.getLowLeaf().toString());
-        System.out.println("High leaf:");
-        System.out.println(router.getHighLeaf().toString());
-        System.out.println(router.printTable());
-        */
+        System.out.println("ID:" + id);
+        System.out.println("balance:" + bitcoinManager.getBalance());
+        for(String channel : routerMap.keySet()) {
+            PeerNodeRouteHandler router = routerMap.get(channel);
+            System.out.println("\t" + channel);
+            System.out.println("\t LLeaf:" + router.getLowLeaf());
+            System.out.println("\t HLeaf:" + router.getHighLeaf());
+            System.out.println("\t Table:" + router.printTable());
+            System.out.println("\t Files:" + fileManager.getFilesString(channel));
+        }
     }
 
     public synchronized void onEvent(Event event){
@@ -242,9 +261,47 @@ public class PubSubNode implements Node {
                     e.printStackTrace();
                 }
                 break;
+            case Protocol.DOWNLOAD_REQ:
+                System.out.println("Download request");
+                try {
+                    processFileDownloadRequest((FileDownloadLookupRequest) event);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                break;
+            case Protocol.DOWNLOAD_RESP:
+                System.out.println("Download response");
+                try {
+                    processFileDownloadResponse((DownloadFileResponse) event);
+                } catch (AddressFormatException e) {
+                    e.printStackTrace();
+                } catch (InsufficientMoneyException e) {
+                    e.printStackTrace();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                break;
+            case Protocol.DECRYPT_REQ:
+                System.out.println("Decrypt request");
+                processDecryptRequest((DecryptRequest) event);
+                break;
             default:
                 System.out.println("Unknown event type");
         }
+    }
+
+    private void processDecryptRequest(DecryptRequest event) {
+        System.out.println("did get payment?:" + bitcoinManager.didReceiveTransactionHash(event.txHash));
+        System.out.println(new String(encryptionManager.decrypt(event.content)));
+    }
+
+    private void processFileDownloadResponse(DownloadFileResponse event) throws AddressFormatException, InsufficientMoneyException, InterruptedException {
+        ContentStoreData record = feed.getContent(event.getHeader().getChannel(), event.ID);
+        record.content = event.bytes;
+        NodeConnection toSend = getNodeConnection(record.publisher);
+        String txHash = bitcoinManager.sendPayment(record.address, record.price);
+        Thread.sleep(10000);
+        toSend.sendEvent(EventFactory.buildDecryptRequestEvent(toSend, event.getHeader().getChannel(), txHash, event.bytes));
     }
 
     private void processFileStoreResponse(FileStoreLookupResponse event) throws IOException {
@@ -257,23 +314,25 @@ public class PubSubNode implements Node {
         System.out.println(event.header.getChannel());
         System.out.println(event.contentID);
         System.out.println(event.price);
+        System.out.println(event.address);
+
+        feed.update(event);
 
         if(!event.contentID.equals(cache.ID)) {
             NodeConnection toSend = getNodeConnection(Util.removePort(routerMap.get(event.header.getChannel()).getHighLeaf().host_port));
-            toSend.sendEvent(EventFactory.buildPublishContentEvent(toSend, event.header.getChannel(), event.contentID, event.price));
+            toSend.sendEvent(EventFactory.buildPublishContentEvent(toSend, event.header.getChannel(), event.contentID, event.price, event.address, event.publisher));
         } else
             cache = new ContentCache();
     }
 
     private void processRoutingTableUpdateEvent(NodeIDEvent event) {
-        PeerNodeRouteHandler router = routerMap.get(event.payload);
+        PeerNodeRouteHandler router = routerMap.get(event.getHeader().getChannel());
         router.updateTable(event.getHeader().getSenderKey(), event.nodeID);
         logger.printDiagnostic(router);
     }
 
     private void processFileStore(StoreFile event) throws IOException {
         fileManager.store(event);
-        // send completion
         NodeConnection connection = getNodeConnection(event.getHeader().getSenderKey());
         connection.sendEvent(EventFactory.buildFileStoreCompleteEvent(connection,"",""));
     }
@@ -289,6 +348,21 @@ public class PubSubNode implements Node {
         } else { // file is stored here
             NodeConnection respNode = getNodeConnection(event.getQueryNodeIP());
             respNode.sendEvent(EventFactory.buildFileStoreResponseEvent(respNode, event, router._Identifier));
+        }
+    }
+
+    private void processFileDownloadRequest(FileDownloadLookupRequest event) throws IOException {
+        PeerNodeRouteHandler router = routerMap.get(event.getHeader().getChannel());
+        String lookupID = router.lookup(event.getLookupID());
+        if(!lookupID.equals(router._Identifier)) {                                          // re-route request to closer node
+            NodeConnection forwardNode = getNodeConnection(router.queryIPFromNodeID(lookupID));
+            Event fEvent = EventFactory.buildFileDownloadRequestEvent(forwardNode, event, router._Identifier);
+            forwardNode.sendEvent(fEvent);
+        } else { // file is stored here
+            NodeConnection respNode = getNodeConnection(event.getQueryNodeIP());
+            byte[] content = fileManager.get(event.getHeader().getChannel(), event.getLookupID());
+            System.out.println("Content len:" + content.length);
+            respNode.sendEvent(EventFactory.buildFileDownloadResponseEvent(respNode, event, event.getLookupID(), content));
         }
     }
 

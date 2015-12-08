@@ -26,6 +26,12 @@ public class Protocol {
 
     public static final int PUBLISH                 = 120;
 
+    public static final int DOWNLOAD_REQ            = 121;
+    public static final int DOWNLOAD_RESP           = 122;
+
+    public static final int DECRYPT_REQ                 = 123;
+    public static final int DECRYPT_RESP                = 124;
+
     // status codes
     public static final byte NOSTATUS               = (byte) 0x00;
     public static final byte SUCCESS                = (byte) 0x01;

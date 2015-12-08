@@ -72,7 +72,7 @@ public class RoutingTable {
             Collections.sort(row, new Comparator<PeerNodeData>() {
                 @Override
                 public int compare(PeerNodeData o1, PeerNodeData o2) {
-                    return new Integer(Integer.parseInt(o1.identifier,16)).compareTo(Integer.parseInt(o2.identifier,16));
+                return new Integer(Integer.parseInt(o1.identifier,16)).compareTo(Integer.parseInt(o2.identifier,16));
                 }
             });
 

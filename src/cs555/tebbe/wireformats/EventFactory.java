@@ -102,8 +102,25 @@ public class EventFactory {
         return new NodeIDEvent(Protocol.EXIT, connection, channel, id,"");
     }
 
-    public static Event buildPublishContentEvent(NodeConnection connection, String channel, String contentID, double price) {
-        return new PublishContent(Protocol.PUBLISH, connection, channel, price, contentID);
+    public static Event buildPublishContentEvent(NodeConnection connection, String channel, String contentID, double price, String address, String publisher) {
+        return new PublishContent(Protocol.PUBLISH, connection, channel, price, contentID, address, publisher);
+    }
+
+    // FILE DL REQ
+    public static Event buildFileDownloadRequestEvent(NodeConnection connection, String channel, String toLookup, String id) throws IOException {
+        return new FileDownloadLookupRequest(Protocol.DOWNLOAD_REQ, connection, channel, toLookup, id);
+    }
+
+    public static Event buildFileDownloadRequestEvent(NodeConnection forwardNode, FileDownloadLookupRequest event, String identifier) {
+        return new FileDownloadLookupRequest(Protocol.DOWNLOAD_REQ, forwardNode, event.getHeader().getChannel(), event.getLookupID(), event.getRoute(), identifier);
+    }
+
+    public static Event buildFileDownloadResponseEvent(NodeConnection forwardNode, FileDownloadLookupRequest event, String identifier, byte[] content) {
+        return new DownloadFileResponse(Protocol.DOWNLOAD_RESP, forwardNode, event.getHeader().getChannel(), identifier, content);
+    }
+
+    public static Event buildDecryptRequestEvent(NodeConnection forwardNode, String channel, String hash, byte[] content) {
+        return new DecryptRequest(Protocol.DECRYPT_REQ, forwardNode, channel, hash, content);
     }
 
     public static Event buildEvent(byte[] marshalledBytes) throws IOException {
@@ -142,6 +159,12 @@ public class EventFactory {
                     return new NodeIDEvent(marshalledBytes);
                 case Protocol.PUBLISH:
                     return new PublishContent(marshalledBytes);
+                case Protocol.DOWNLOAD_REQ:
+                    return new FileDownloadLookupRequest(marshalledBytes);
+                case Protocol.DOWNLOAD_RESP:
+                    return new DownloadFileResponse(marshalledBytes);
+                case Protocol.DECRYPT_REQ:
+                    return new DecryptRequest(marshalledBytes);
                 default: return null;
             }
         } catch(IOException ioe) { 

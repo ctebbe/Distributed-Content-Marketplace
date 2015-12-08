@@ -13,11 +13,15 @@ public class PublishContent implements Event {
     public Header header;
     public String contentID;
     public double price;
+    public String address;
+    public String publisher;
 
-    protected PublishContent(int protocol, NodeConnection nc, String channel, double price, String contentID) {
+    protected PublishContent(int protocol, NodeConnection nc, String channel, double price, String contentID, String address, String publisher) {
         header = new Header(protocol, nc, channel);
         this.contentID = contentID;
         this.price = price;
+        this.address = address;
+        this.publisher = publisher;
     }
 
     protected PublishContent(byte[] marshalledBytes) throws IOException {
@@ -27,6 +31,8 @@ public class PublishContent implements Event {
         header = Header.parseHeader(din);
         contentID = Util.readString(din);
         price = din.readDouble();
+        address = Util.readString(din);
+        publisher = Util.readString(din);
 
         bais.close();
         din.close();
@@ -41,6 +47,8 @@ public class PublishContent implements Event {
         dout.write(header.getBytes());
         Util.writeString(contentID, dout);
         dout.writeDouble(price);
+        Util.writeString(address, dout);
+        Util.writeString(publisher, dout);
 
         // clean up
         dout.flush();

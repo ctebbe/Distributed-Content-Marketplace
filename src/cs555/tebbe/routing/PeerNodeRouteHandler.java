@@ -66,9 +66,10 @@ public class PeerNodeRouteHandler {
     }
 
     public String queryIPFromNodeID(String queryID) {
+        System.out.println(queryID);
         if(lowLeaf.identifier.equalsIgnoreCase(queryID))
             return Util.removePort(lowLeaf.host_port);
-        else if(highLeaf.identifier.equals(queryID))
+        else if(highLeaf.identifier.equalsIgnoreCase(queryID))
             return Util.removePort(highLeaf.host_port);
         else {
             System.out.println("* Routing from routing table");
